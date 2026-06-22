@@ -1,1 +1,1 @@
-# rocket-trajectory-model
+# Experiment with rocket trajectories in Hohmann transfers
