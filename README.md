@@ -136,7 +136,7 @@ $$
 t_{\text{transfer}} = \frac{T}{2} = \frac{1}{2}\sqrt{\frac{4\pi^2}{\mu}a^3}
 $$
 
-Substituting $a = (r_1+r_2)/2$ from Section 3:
+Substituting $a = (r_1+r_2)/2$ from Section 1:
 
 $$
 \boxed{t_{\text{transfer}} = \frac{\pi}{\sqrt{\mu}}\left(\frac{r_1+r_2}{2}\right)^{3/2}}
