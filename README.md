@@ -122,7 +122,7 @@ $$
 
 This is the number that matters operationally — it's what feeds into the rocket equation to determine how much propellant the maneuver actually costs.
 
-#### 5a. Transfer Time
+#### 2a. Transfer Time
 
 The transfer ellipse is a real but temporary orbit and obeys Kepler's Third Law, which relates orbital period to semi-major axis:
 
