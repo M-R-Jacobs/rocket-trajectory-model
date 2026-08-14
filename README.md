@@ -1,5 +1,3 @@
-## 0. Experiment with rocket trajectories in Hohmann transfers
-
 ## 1. Hohmann Transfer Mechanics
 
 A **Hohmann transfer** moves a satellite from one circular orbit to another, larger or smaller, circular orbit using exactly two engine burns. An example of this may be a trans-lunar injection (TLI) from low earth orbit (LEO) to a lunar orbit, though it may be used to get into any other orbit, as in a Medium Earth Orbit (MEO) or a Geostationary Orbit (GEO). Burn 1 kicks the satellite out of its initial circular orbit into an elliptical *transfer orbit*, usually when the spacecraft is at its perigee (the closest point to Earth in its orbit) in a “**Oberth effect**”. The satellite coasts along this ellipse, engines off and letting gravity do the work so to speak, until it reaches the new desired radius, at which point Burn 2 kicks it back into a circular orbit at that radius.
