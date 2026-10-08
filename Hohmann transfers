@@ -1,0 +1,178 @@
+# 0. Library imports
+
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+
+plt.rcParams["font.family"] = "Arial"
+
+
+
+# 1. Constants (Earth, km and s)
+
+MU = 398600.4418    # Earth's gravitational parameter, GM (km^3/s^2)
+R_BODY = 6378.137   # Earth's equatorial radius (km)
+
+
+
+# 2. Orbital mechanics functions (one per boxed equation in the ReadMe)
+
+def v_circ(r):
+    return np.sqrt(MU / r)      # circular orbit speed at radius r
+
+def a_transfer(r1, r2):
+    return (r1 + r2) / 2        # semi-major axis of the Hohmann ellipse
+
+def v_vis_viva(r, a):
+    return np.sqrt(MU * (2/r - 1/a))    # speed anywhere on an orbit with semi-major axis a (V2 and V3)
+
+def hohmann(r1, r2):
+    a = a_transfer(r1, r2)
+    V1 = v_circ(r1)
+    V2 = v_vis_viva(r1, a)
+    V3 = v_vis_viva(r2, a)
+    V4 = v_circ(r2)
+    dv1 = V2 - V1
+    dv2 = V4 - V3
+    t = np.pi * np.sqrt(a**3 / MU)      # half the period of the transfer ellipse
+    return dv1, dv2, abs(dv1) + abs(dv2), t
+
+
+
+# 3. Trajectory produced by an arbitrary Burn 1
+# The user's burn may not be the Hohmann value, so solve for whatever orbit it actually creates.
+# Burn happens at r1, tangential, so r1 is periapsis of the new orbit.
+
+def orbit_after_burn(r1, dv):
+    v = v_circ(r1) + dv                 # speed right after the burn
+    energy = v**2 / 2 - MU / r1         # specific mechanical energy (per unit mass)
+    h = r1 * v                          # specific angular momentum (velocity is perpendicular to r at periapsis)
+    e = np.sqrt(1 + 2 * energy * h**2 / MU**2)      # eccentricity from energy and angular momentum
+    p = h**2 / MU                       # semi-latus rectum, sets the size of the conic
+    return e, p, energy
+
+def conic_points(e, p, r_cap):
+    theta = np.linspace(0, np.pi, 400)      # periapsis (0) to apoapsis (pi): the coast half
+    denom = 1 + e * np.cos(theta)
+    keep = denom > 1e-6                     # hyperbolas don't reach theta = pi, drop those angles
+    r = p / denom[keep]
+    theta = theta[keep]
+    inside = r < r_cap                      # stop drawing once it leaves the plot
+    return r[inside] * np.cos(theta[inside]), r[inside] * np.sin(theta[inside])
+        # polar conic equation r = p / (1 + e cos(theta)), converted to x, y
+
+
+
+# 4. Verification against a textbook case: LEO (300 km) to GEO
+
+r_leo = R_BODY + 300
+r_geo = 42164.0     # GEO radius (km)
+dv1_c, dv2_c, dv_tot_c, t_c = hohmann(r_leo, r_geo)
+print(f"LEO->GEO check: dV1 = {dv1_c:.3f} km/s, dV2 = {dv2_c:.3f} km/s, "
+      f"total = {dv_tot_c:.3f} km/s, transfer time = {t_c/3600:.2f} hr")
+print("Textbook: dV1 ~ 2.43 km/s, dV2 ~ 1.46 km/s, total ~ 3.89 km/s, ~5.3 hr")
+
+
+
+# 5. Figure setup
+
+fig = plt.figure(figsize=(11, 7))
+ax = fig.add_axes([0.05, 0.25, 0.55, 0.70])         # orbit plot [left, bottom, width, height]
+ax_stats = fig.add_axes([0.63, 0.25, 0.34, 0.70])   # stat panel
+ax_stats.axis("off")
+
+ax.set_aspect("equal")      # circles must look like circles
+ax.grid(True, linestyle="--", alpha=0.4)
+ax.set_xlabel("x (km)", fontsize=8)
+ax.set_ylabel("y (km)", fontsize=8)
+ax.tick_params(labelsize=7)
+
+ang = np.linspace(0, 2*np.pi, 400)
+ax.fill(R_BODY * np.cos(ang), R_BODY * np.sin(ang), color="steelblue", alpha=0.6)   # Earth
+
+line_orbit1, = ax.plot([], [], color="gray", linewidth=1, label="Initial orbit")
+line_orbit2, = ax.plot([], [], color="black", linewidth=1, linestyle="--", label="Target orbit")
+line_hoh, = ax.plot([], [], color="green", linewidth=1, alpha=0.5, label="Hohmann (ideal)")
+line_burn, = ax.plot([], [], color="red", linewidth=2, label="Your burn")
+ax.legend(fontsize=7, loc="upper right")
+
+stats_text = ax_stats.text(
+    0.0, 0.95, "",
+    transform=ax_stats.transAxes,
+    fontsize=9, va="top", fontfamily="Consolas"
+)
+
+
+
+# 6. Sliders
+
+ax_s1 = fig.add_axes([0.15, 0.14, 0.45, 0.03])
+ax_s2 = fig.add_axes([0.15, 0.09, 0.45, 0.03])
+ax_s3 = fig.add_axes([0.15, 0.04, 0.45, 0.03])
+
+s_alt1 = Slider(ax_s1, "Initial alt (km)", 200, 2000, valinit=300, valstep=10)
+s_alt2 = Slider(ax_s2, "Target alt (km)", 2000, 40000, valinit=35786, valstep=1)
+s_burn = Slider(ax_s3, "Burn 1 (% Hohmann)", 50, 150, valinit=100, valstep=1)
+    # burn as a % of the ideal dV1, so 100% is always "perfect" no matter which orbits are chosen
+
+
+
+# 7. Update
+
+def update(val):
+    r1 = R_BODY + s_alt1.val
+    r2 = R_BODY + s_alt2.val
+    dv1, dv2, dv_tot, t = hohmann(r1, r2)
+
+    line_orbit1.set_data(r1 * np.cos(ang), r1 * np.sin(ang))
+    line_orbit2.set_data(r2 * np.cos(ang), r2 * np.sin(ang))
+
+    r_cap = 1.4 * r2        # plotting limit
+    e_h, p_h, _ = orbit_after_burn(r1, dv1)
+    line_hoh.set_data(*conic_points(e_h, p_h, r_cap))   # * unpacks the (x, y) tuple into two arguments
+
+    dv_user = dv1 * s_burn.val / 100
+    e_u, p_u, energy_u = orbit_after_burn(r1, dv_user)
+    line_burn.set_data(*conic_points(e_u, p_u, r_cap))
+
+    if energy_u >= 0:       # zero or positive energy = unbound orbit
+        verdict = "ESCAPE (hyperbolic)"
+        apo_text = "apoapsis: none"
+    else:
+        a_u = -MU / (2 * energy_u)      # from E = -mu / 2a
+        r_apo = 2 * a_u - r1            # far end of the major axis
+        miss = r_apo - r2
+        if abs(miss) < 0.005 * r2:      # within 0.5% of target counts as a hit
+            verdict = "ON TARGET"
+        elif miss > 0:
+            verdict = "OVERSHOOT"
+        else:
+            verdict = "UNDERSHOOT"
+        apo_text = f"apoapsis: {r_apo:,.0f} km\nmiss:     {miss:+,.0f} km"
+
+    stats_text.set_text(
+        f"Hohmann transfer\n"
+        f"  dV1   = {dv1:.3f} km/s\n"
+        f"  dV2   = {dv2:.3f} km/s\n"
+        f"  total = {dv_tot:.3f} km/s\n"
+        f"  time  = {t/3600:.2f} hr\n\n"
+        f"Your burn ({s_burn.val:.0f}%)\n"
+        f"  dV1   = {dv_user:.3f} km/s\n"
+        f"  e     = {e_u:.3f}\n"
+        f"  {apo_text}\n\n"
+        f"  {verdict}"
+    )
+
+    lim = 1.15 * r2
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    fig.canvas.draw_idle()
+
+s_alt1.on_changed(update)
+s_alt2.on_changed(update)
+s_burn.on_changed(update)
+
+
+
+update(None)    # to start it off
+plt.show()
